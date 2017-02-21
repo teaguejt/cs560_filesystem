@@ -1,6 +1,6 @@
 CC=gcc
-SRC=main.c
-EXE=fs_driver
+SRC=main.c shell.c
+EXE=sh
 CONTAINER=fs_container
 
 all:
