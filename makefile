@@ -1,5 +1,5 @@
 CC=gcc
-SRC=main.c shell.c
+SRC=main.c shell.c fs.c
 EXE=sh
 CONTAINER=fs_container
 
