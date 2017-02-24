@@ -37,6 +37,8 @@ struct fs fs;
     ((int)GET_BLOCK_ABS_OFFSET(b) - DATA_START)
 #define GET_BLOCK_INDEX(b) \
      ((int)GET_BLOCK_OFFSET(b) / (sizeof(struct data_block)))
+#define GET_BLOCK_ADDR(o) \
+    ((unsigned long)(fs.disk + o))
 
 /* Find the first free inode on the filesystem
  * Returns NULL if no free inode is found, else returns a pointer to the
@@ -172,6 +174,7 @@ int fs_mkfs() {
 
     /* Create the file */
     printf("creating new file system... ");
+    fs.cur_dir = NULL;
     if(fs.fd == -1) {
         if((fs.fd = open(FSNAME, O_RDWR | O_CREAT, FSFLAGS)) < 0) {
             printf("error!\n");
@@ -241,6 +244,7 @@ int fs_mkdir(char *name) {
      * directory to itseld; this creates the root directory. */
     new_node->mode = NODE_MODE_DIR;
     new_node->size = 1;
+    new_node->blocks[0] = GET_BLOCK_ABS_OFFSET(new_block);
     
     for(i = 0; i < DIR_BLOCK_ENTRIES; i++) {
         new_block->entries[i].entry_type = NODE_MODE_UNUSED;
@@ -258,9 +262,15 @@ int fs_mkdir(char *name) {
         fs.cur_dir = new_node;
     }
     else {
-        free_entry = find_free_dir_entry(&(fs.cur_dir->blocks[0]));
-        printf("fs: found free dir entry 0x%x in block index %d\n", free_entry,
-                GET_BLOCK_INDEX(&(fs.cur_dir->blocks[0])));
+        printf("fs: checking for free dir entry in block addr 0x%x\n",
+                GET_BLOCK_ADDR(fs.cur_dir->blocks[0]));
+        pt_block = (struct dir_block *)GET_BLOCK_ADDR(fs.cur_dir->blocks[0]);
+        free_entry = find_free_dir_entry(pt_block);
+        printf("fs: found free dir entry 0x%x in block index %d\n",
+                free_entry);
+        strcpy(free_entry->name, name);
+        free_entry->entry_type = NODE_MODE_DIR;
+        free_entry->entry_node = GET_INODE_OFFSET(new_node);
     }
 
     new_block->entries[1].entry_node = GET_INODE_OFFSET(fs.cur_dir);
@@ -279,6 +289,13 @@ int fs_mkdir(char *name) {
                 sizeof(struct dir_block)) {
         printf("fs error (fs_mkdir): could not write data block\n");
         return -4;
+    }
+
+    lseek(fs.fd, GET_BLOCK_ABS_OFFSET(pt_block), SEEK_SET);
+    if(write(fs.fd, (void *)pt_block, sizeof(struct dir_block)) !=
+            sizeof(struct dir_block)) {
+        printf("fs error (fs_mkdir): could not update parent dir block\n");
+        return -5;
     }
 
     lseek(fs.fd, 0, SEEK_SET);

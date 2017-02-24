@@ -72,6 +72,7 @@ void listen() {
             }
             
             printf("fs: will make directory %s\n", &line[part_break]);
+            fs_mkdir(&line[part_break]);
         }
         else if(strcmp(cmd, "exit") == 0) {
             printf("fs: goodbye\n");
