@@ -49,7 +49,7 @@ struct inode *find_free_inode() {
     for(tmp = NODES_START; tmp < NODES_END; tmp++) {
         if(tmp->mode == NODE_MODE_UNUSED) {
             node = tmp;
-            //break;
+            break;
         }
     }
     return node;
@@ -67,9 +67,24 @@ struct data_block *find_free_block() {
     for(tmp = BLOCKS_START; tmp < BLOCKS_END; tmp++) {
         if(tmp->flags == BLK_MODE_UNUSED) {
             blk = tmp;
+            break;
         }
     }
     return blk;
+}
+
+struct dir_entry *find_free_dir_entry(struct dir_block *blk) {
+    int i;
+    struct dir_entry *entry = NULL;
+
+    for(i = 0; i < DIR_BLOCK_ENTRIES; i++) {
+        if(blk->entries[i].entry_type == NODE_MODE_UNUSED) {
+            entry = &(blk->entries[i]);
+            break;
+        }
+    }
+
+    return entry;
 }
 
 int fs_init() {
@@ -228,24 +243,27 @@ int fs_mkdir(char *name) {
     new_node->size = 1;
     
     for(i = 0; i < DIR_BLOCK_ENTRIES; i++) {
-        new_block->entries[i].entry_type = 0;
+        new_block->entries[i].entry_type = NODE_MODE_UNUSED;
         new_block->entries[i].entry_node = -1;
     }
     strcpy(new_block->entries[0].name, ".");
     new_block->entries[0].entry_type = NODE_MODE_DIR;
-    new_block->entries[0].entry_node = GET_INODE_INDEX(new_node);
+    new_block->entries[0].entry_node = GET_INODE_OFFSET(new_node);
     strcpy(new_block->entries[1].name, "..");
     new_block->entries[1].entry_type = NODE_MODE_DIR;
+    
+    /* Handle the special case when this is the first directory created, e.g.
+     * when mkfs is first run */
     if(fs.cur_dir == NULL) {
         fs.cur_dir = new_node;
     }
     else {
-        /*pt_block = fs.cur_dir->blocks[0]; */
-        for(i = 0; i < DIR_BLOCK_ENTRIES; i++) {
-        }
+        free_entry = find_free_dir_entry(&(fs.cur_dir->blocks[0]));
+        printf("fs: found free dir entry 0x%x in block index %d\n", free_entry,
+                GET_BLOCK_INDEX(&(fs.cur_dir->blocks[0])));
     }
 
-    new_block->entries[1].entry_node = GET_INODE_INDEX(fs.cur_dir);
+    new_block->entries[1].entry_node = GET_INODE_OFFSET(fs.cur_dir);
     new_block->flags = BLK_MODE_DIR;
 
     /* Write the new inode and block */

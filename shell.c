@@ -11,6 +11,24 @@
 #include "fs.h"
 #include "shell.h"
 
+int shell_valid_string(char *str) {
+    int i;
+
+    /* Check to make sure there are no spaces in the string */
+    for(i = 0; i < strlen(str); i++) {
+        if(str[i] == ' ') {
+            return -1;
+        }
+    }
+
+    /* Check to make sure the string is less than 255 long */
+    if(strlen(str) > 255) {
+        return -2;
+    }
+
+    return 0;
+}
+
 void listen() {
     char *line = NULL;
     char cmd[CMD_LEN];
@@ -37,7 +55,7 @@ void listen() {
             cmd[i] = line[i];
             ++i;
         }
-        part_break = i + 1;
+        part_break = i + 1; /* There will be a space here, so ignore it. */
 
         /* Now handle the multitude of commands we can have here. */
         if(strcmp(cmd, "mkfs") == 0) {
@@ -46,6 +64,19 @@ void listen() {
         }
         else if(strcmp(cmd, "info") == 0) {
             fs_info();
+        }
+        else if(strcmp(cmd, "mkdir") == 0) {
+            if(shell_valid_string(&line[part_break])) {
+                printf("fs error: invalid string to mkdir\n");
+                continue;
+            }
+            
+            printf("fs: will make directory %s\n", &line[part_break]);
+        }
+        else if(strcmp(cmd, "exit") == 0) {
+            printf("fs: goodbye\n");
+            proceed = 0;
+            break;
         }
         else {
             printf("invalid cmd %s %s\n", cmd, &line[part_break]);
