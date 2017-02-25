@@ -62,6 +62,7 @@ struct fs {
     int fd;
     int data_start;
     struct inode *cur_dir;
+    char *cur_dir_name;
     char disk[DISK_SIZE];
 };
 
@@ -78,4 +79,6 @@ int fs_init();
 void fs_info();
 int fs_mkfs();
 int fs_mkdir(char *name);
+int fs_ls();
 void fs_close();
+void fs_cd(char *name);

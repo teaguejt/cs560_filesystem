@@ -39,6 +39,8 @@ struct fs fs;
      ((int)GET_BLOCK_OFFSET(b) / (sizeof(struct data_block)))
 #define GET_BLOCK_ADDR(o) \
     ((unsigned long)(fs.disk + o))
+#define GET_ASSET_ADDR(offset) \
+    ((unsigned long)(fs.disk + offset))
 
 /* Find the first free inode on the filesystem
  * Returns NULL if no free inode is found, else returns a pointer to the
@@ -214,7 +216,7 @@ int fs_mkfs() {
 }
 
 int fs_mkdir(char *name) {
-    int i;
+    int i, is_new_fs;
     struct inode *new_node;
     struct dir_block *new_block;
     struct dir_block *pt_block;
@@ -243,7 +245,7 @@ int fs_mkdir(char *name) {
      * exists (ie, when a new fs is created) by setting the parent of the
      * directory to itseld; this creates the root directory. */
     new_node->mode = NODE_MODE_DIR;
-    new_node->size = 1;
+    new_node->size = 0;
     new_node->blocks[0] = GET_BLOCK_ABS_OFFSET(new_block);
     
     for(i = 0; i < DIR_BLOCK_ENTRIES; i++) {
@@ -260,17 +262,21 @@ int fs_mkdir(char *name) {
      * when mkfs is first run */
     if(fs.cur_dir == NULL) {
         fs.cur_dir = new_node;
+        is_new_fs = 1;
+        fs.cur_dir_name = "";
     }
     else {
         printf("fs: checking for free dir entry in block addr 0x%x\n",
                 GET_BLOCK_ADDR(fs.cur_dir->blocks[0]));
         pt_block = (struct dir_block *)GET_BLOCK_ADDR(fs.cur_dir->blocks[0]);
+        fs.cur_dir->size++;
         free_entry = find_free_dir_entry(pt_block);
         printf("fs: found free dir entry 0x%x in block index %d\n",
                 free_entry);
         strcpy(free_entry->name, name);
         free_entry->entry_type = NODE_MODE_DIR;
         free_entry->entry_node = GET_INODE_OFFSET(new_node);
+        is_new_fs = 0;
     }
 
     new_block->entries[1].entry_node = GET_INODE_OFFSET(fs.cur_dir);
@@ -291,16 +297,126 @@ int fs_mkdir(char *name) {
         return -4;
     }
 
-    lseek(fs.fd, GET_BLOCK_ABS_OFFSET(pt_block), SEEK_SET);
-    if(write(fs.fd, (void *)pt_block, sizeof(struct dir_block)) !=
-            sizeof(struct dir_block)) {
-        printf("fs error (fs_mkdir): could not update parent dir block\n");
-        return -5;
+    if(!is_new_fs) {
+        lseek(fs.fd, GET_BLOCK_ABS_OFFSET(pt_block), SEEK_SET);
+        if(write(fs.fd, (void *)pt_block, sizeof(struct dir_block)) !=
+                sizeof(struct dir_block)) {
+            printf("fs error (fs_mkdir): could not update parent dir block\n");
+            return -5;
+        }
     }
 
     lseek(fs.fd, 0, SEEK_SET);
 
     return 0;
+}
+
+/* fs_ls: list all files in the current directory */
+int fs_ls() {
+    int i;
+    struct dir_block *blk;
+    struct dir_entry *ent;
+    struct inode *node;
+
+    /* Just in case there's no file system, bail out */
+    if(fs.cur_dir == NULL) {
+        printf("fs error (fs_ls): no filesystem exists.\n");
+        return -1;
+    }
+
+    /* Print header */
+    printf("Contents of ");
+    if(strcmp(fs.cur_dir_name, "") == 0) {
+        printf("root directory:\n");
+    }
+    else {
+        printf("%s\n", fs.cur_dir_name);
+    }
+
+    /* Print directory information */
+    printf("%-30s%10s%10s\n", "NAME", "TYPE", "SIZE");
+    blk = (struct dir_block *)GET_BLOCK_ADDR(fs.cur_dir->blocks[0]);
+    for(i = 0; i < DIR_BLOCK_ENTRIES; i++) {
+        ent = &blk->entries[i];
+        if(ent->entry_type == NODE_MODE_UNUSED) continue;
+        printf("%-30s", ent->name);
+        /* Get the object's inode to print type and size info */
+        node = (struct inode *)GET_ASSET_ADDR(ent->entry_node);
+        if(node->mode == NODE_MODE_DIR) {
+            printf("%10s", "DIR");
+        }
+        else if(node->mode == NODE_MODE_FILE) {
+            printf("%10s", "FILE");
+        }
+        printf("%10d\n", node->size);
+    }
+
+    return 0;
+}
+
+/* Change directories */
+void fs_cd(char *name) {
+    int i, j;
+    int found = 0;
+    int found_file = 0;
+    struct inode *pt;               /* A "parent" inode for some ops */
+    struct dir_block *blk, *blk2;
+    struct dir_entry *ent, *ent2;
+
+    /* Just in case there's no filesystem, bail out */
+    if(fs.cur_dir == NULL) {
+        printf("fs error (fs_cd): no filesystem exists.\n");
+        return;
+    }
+
+    /* Get the directory block of the current directory */
+    blk = (struct dir_block *)GET_BLOCK_ADDR(fs.cur_dir->blocks[0]);
+    for(i = 0; i < DIR_BLOCK_ENTRIES; i++) {
+        ent = &blk->entries[i];
+        if(strcmp(name, ent->name) == 0 && ent->entry_type == NODE_MODE_DIR) {
+            fs.cur_dir = (struct inode *)GET_ASSET_ADDR(ent->entry_node);
+            /* Handle the special cases of switching to "." or ".." so the name
+             * displays correctly when ls is called */
+            if(strcmp(name, ".") != 0) {
+                fs.cur_dir_name = ent->name;
+            }
+            if(strcmp(name, "..") == 0) {
+                /* This seems awfully complex for what it is. But, if names
+                 * aren't stored in the inodes, it's the only way. */
+                blk2 = (struct dir_block *)GET_BLOCK_ADDR(fs.cur_dir->blocks[0]);
+                pt = (struct inode *)GET_ASSET_ADDR(blk2->entries[1].entry_node);
+                blk2 = (struct dir_block *)GET_BLOCK_ADDR(pt->blocks[0]);
+                for(j = 0; j < DIR_BLOCK_ENTRIES; j++) {
+                    /* Really? We're still going? */
+                    ent2 = &blk2->entries[j];
+                    if(ent2->entry_node == ent->entry_node) {
+                        fs.cur_dir_name = ent2->name;
+                        break;
+                    }
+                }
+            }
+            
+            /* Handle the special case of switching back to the root
+             * directory, since it has no actual name. */
+            blk2 = (struct dir_block *)GET_BLOCK_ADDR(fs.cur_dir->blocks[0]);
+            if(blk2->entries[0].entry_node == blk2->entries[1].entry_node) {
+                fs.cur_dir_name = "";
+            }
+            found = 1;
+            break;
+        }
+        else if(strcmp(name, ent->name) == 0) {
+            found_file = 1;
+            break;
+        }
+    }
+
+    if(found_file && !found) {
+        printf("fs error (fs_cd): cannot cd to %s: is a file\n", name);
+    }
+    else if(!found_file && !found) {
+        printf("fs error (fs_cd): cannot cd to %s: not found\n", name);
+    }
 }
 
 void fs_close() {

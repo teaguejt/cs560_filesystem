@@ -74,6 +74,17 @@ void listen() {
             printf("fs: will make directory %s\n", &line[part_break]);
             fs_mkdir(&line[part_break]);
         }
+        else if(strcmp(cmd, "ls") == 0) {
+            fs_ls();
+        }
+        else if(strcmp(cmd, "cd") == 0) {
+            if(shell_valid_string(&line[part_break])) {
+                printf("fs error: invalid string to mkdir\n");
+                continue;
+            }
+
+            fs_cd(&line[part_break]);
+        }
         else if(strcmp(cmd, "exit") == 0) {
             printf("fs: goodbye\n");
             proceed = 0;
@@ -83,9 +94,6 @@ void listen() {
             printf("invalid cmd %s %s\n", cmd, &line[part_break]);
         }
 
-        if(strcmp(line, "exit") == 0) {
-            proceed = 0;
-        }
     } while(proceed);
 
     return;
