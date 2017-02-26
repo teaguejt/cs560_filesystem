@@ -3,9 +3,12 @@
  * file.c - contains the functions for file operations
  */
 
+#include <string.h>
+#include <stdio.h>
 #include "file.h"
+#include "fs.h"
 
-struct fs fs;
+extern struct fs fs;
 
 struct descriptor *get_fd(int index){
     struct descriptor *file = NULL;
@@ -74,3 +77,26 @@ int file_close(int fd){
     return 0;
 }
 
+int file_open(char *name, char flag){
+    struct inode *file;
+    int i = 0;
+
+    if(!find_file(name)){
+        file = create_file(name);
+    }
+    else{
+        file = find_file(name);
+    }
+    
+    while(fs.files[i]->mode != NODE_MODE_UNUSED){
+        i++;
+    }
+    if(i > 1023){
+        printf("Open file limit exceeded. Please close an open file.");
+    }
+    fs.files[i]->mode = NODE_MODE_FILE;
+    fs.files[i]->flag = flag;
+    fs.files[i]->offset = 0;
+    fs.files[i]->node_ptr = file;
+    return 0;
+}

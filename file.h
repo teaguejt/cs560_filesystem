@@ -1,16 +1,11 @@
 /* Joseph Teague and Clarence Jackson
  * CS560 Lab 1: The File System
- * fs.h: contains structures and definitions related to the file system
- * container.
+ * file.h: Structures and Definitions for file operations. 
  */
 
 /* descriptor Modes */
 #define NODE_MODE_UNUSED 0
 #define NODE_MODE_FILE   1
-
-#include <stdlib.h>
-
-//#include "fs.h" 
 
 /* file descriptor */
 struct descriptor {
@@ -26,4 +21,4 @@ int file_close(int fd);
 int file_read(int fd, int size);
 int file_write(int fd, char *string);
 struct descriptor *get_fd(int index);
-
+int file_open(char *name, char flag);

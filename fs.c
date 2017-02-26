@@ -12,6 +12,7 @@
 #include <string.h>
 
 #include "fs.h"
+#include "file.h"
 
 #define FSNAME "fs_container"
 #define FSFLAGS S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH | S_IWOTH
@@ -212,6 +213,16 @@ int fs_mkfs() {
         printf("error\n");
         return -3;
     }
+
+	/* Create file descriptors */
+	for(i = 0; i < 1024; i++){
+	struct descriptor *descript = (struct descriptor*) malloc(sizeof(struct descriptor));
+    fs.files[i] = descript;
+	fs.files[i]->mode = NODE_MODE_UNUSED;
+    fs.files[i]->flag = -1;
+    fs.files[i]->offset = -1;
+    fs.files[i]->node_ptr = NULL;
+	}
     fsync(fs.fd);
 
     fs_mkdir("");

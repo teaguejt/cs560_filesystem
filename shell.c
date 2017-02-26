@@ -9,6 +9,7 @@
 #include <string.h>
 
 #include "fs.h"
+#include "file.h"
 #include "shell.h"
 
 int shell_valid_string(char *str) {
@@ -275,7 +276,30 @@ void listen() {
                 part = part + strlen(part) + 1;
             }
         }
-
+        /*finalize file operation parsing*/
+		else if(strcmp(cmd, "open") == 0) {
+		    file_open("filea",'r');
+		    file_open("filea",'w');
+            printf("fs: opening files\n");
+        }
+		else if(strcmp(cmd, "read") == 0) {
+		    file_read(0,11);
+		    file_seek(0,0);
+        }
+		else if(strcmp(cmd, "write") == 0) {
+		    file_write(1,"Hello World");
+		    file_seek(1,0);
+        }
+		else if(strcmp(cmd, "seek") == 0) {
+		    file_seek(0,6);
+		    file_read(0,5);
+		    file_seek(0,0);
+        }
+		else if(strcmp(cmd, "close") == 0) {
+		    file_close(0);
+		    file_close(1);
+        }
+        /*end of file operation parsing*/
         else if(strcmp(cmd, "exit") == 0) {
             printf("fs: goodbye\n");
             proceed = 0;
