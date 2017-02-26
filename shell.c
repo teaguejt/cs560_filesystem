@@ -222,7 +222,35 @@ void listen() {
 
             fs.cur_dir = tmp_node;
             fs.cur_dir_name = tmp_name;
+        }
+        else if(strcmp(cmd, "rmdir") == 0) {
+            if(shell_valid_string(&line[part_break])) {
+                printf("fs error: invalid string to rm\n");
+                continue;
+            }
+            
+            tmp_node = fs.cur_dir;
+            tmp_name = fs.cur_dir_name;
 
+            if(line[part_break] == '/') {
+                modifier = 1;
+                fs_cd_root();
+            }
+            else {
+                modifier = 0;
+            }
+            count = process_path_string(&line[part_break + modifier]);
+            mass_change(count - 1, &line[part_break + modifier]);
+            
+            rv = fs_rmdir(get_last_path_part(count,
+                        &line[part_break + modifier]));
+
+            if(rv) {
+                printf("fs error: rmdir returned %d\n", rv);
+            }
+
+            fs.cur_dir = tmp_node;
+            fs.cur_dir_name = tmp_name;
         }
         else if(strcmp(cmd, "tree") == 0) {
             fs_tree(fs.cur_dir, 0);

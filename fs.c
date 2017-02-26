@@ -332,9 +332,64 @@ int fs_mkdir(char *name) {
     return 0;
 }
 
-/* Remove a directory named "name." THIS IS DESTRUCTIVE AND WILL DESTROY
- * ANYTHING UNDER THE DIRECTORY, INCLUDING OTHER DIRECTORIES! */
+/* Remove a directory named "name." Much like in Linux, non-empty directories
+ * cannot be deleted using this command */
 int fs_rmdir(char *name) {
+    int i;
+    struct inode *node;
+    struct dir_block *blk;
+    struct dir_entry *ent;
+
+    /* Do not allow deletion of . or .. */
+    if(strcmp(name, ".") == 0) {
+        return -1;
+    }
+    else if(strcmp(name, "..") == 0) {
+        return -2;
+    }
+
+    /* Make sure the name is in use and isn't a file */
+    if(find_file(name)) {
+        return -3;
+    }
+
+    node = find_dir(name);
+    if(!node) {
+        return -4;
+    }
+
+    blk = (struct dir_block *)GET_ASSET_ADDR(node->blocks[0]);
+
+    /* Make sure we're not trying to delete the root directory */
+    /* Root should be only dir where offset of . == offset of .. */
+    if(blk->entries[0].entry_node == blk->entries[1].entry_node) {
+        return -5;
+    }
+
+    /* Don't delete empty directories! */
+    if(node->size != 0) {
+        return -6;
+    }
+
+    /* Invalidate the inode and dir block */
+    node->mode = NODE_MODE_UNUSED;
+    node->size = 0;
+    blk->flags = BLK_MODE_UNUSED;
+
+    /* Find and delete the directory entry for the requested name */
+    blk = (struct dir_block *)GET_ASSET_ADDR(fs.cur_dir->blocks[0]);
+    for(i = 0; i < DIR_BLOCK_ENTRIES; i++) {
+        ent = &blk->entries[i];
+        if(strcmp(ent->name, name) == 0) {
+            break;
+        }
+    }
+    strcpy(ent->name, "");
+    ent->entry_type = NODE_MODE_UNUSED;
+    ent->entry_node = -1;
+    fs.cur_dir->size--;
+
+    return 0;
 }
 
 /* fs_ls: list all files in the current directory */
