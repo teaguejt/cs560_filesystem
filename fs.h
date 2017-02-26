@@ -80,5 +80,13 @@ void fs_info();
 int fs_mkfs();
 int fs_mkdir(char *name);
 int fs_ls();
+int fs_rmdir(char *name);
 void fs_close();
 void fs_cd(char *name);
+void fs_cd_root();
+
+/* Some file operation functions */
+struct inode *create_file(char *name);
+int delete_file(char *name);
+struct inode *find_file(char *name);
+struct inode *find_dir(char *name);

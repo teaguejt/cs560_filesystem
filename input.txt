@@ -1,4 +1,8 @@
-this is
-a test
-of the emergency broadcast system
-hurrrrrrr
+mkfs
+mkdir joe
+touch joe.txt
+info
+ls
+rm joe.txt
+info
+ls

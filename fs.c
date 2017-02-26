@@ -163,10 +163,16 @@ void fs_info() {
             ++blocks;
             ++dirs;
         }
+        if(tmp_blk->flags == BLK_MODE_FILE) {
+            ++blocks;
+            ++data;
+        }
     }
 
     printf("inodes in use:      %d\n", inodes);
-    printf("data blocks in use: %d\n", blocks);
+    printf("blocks in use:      %d\n", blocks);
+    printf("-- dir blocks:      %d\n", dirs);
+    printf("-- file blocks:     %d\n", data);
 }
 
 int fs_mkfs() {
@@ -222,6 +228,21 @@ int fs_mkdir(char *name) {
     struct dir_block *pt_block;
     struct dir_entry *free_entry;
 
+    /* make sure the file doesn't currently exist (as a file or directory) */
+    /* But only if we actually have a current directory */
+    if(fs.cur_dir) {
+        printf("checking files...\n");
+        if(find_file(name)) {
+            printf("fs error (fs_mkdir): name already in use for file.\n");
+            return -6;
+        }
+
+        printf("checking dirs...\n");
+        if(find_dir(name)) {
+            printf("fs error (fs_mkdir): directory already exists.\n");
+            return -7;
+        }
+    }
     /* locate and obtain pointers to a free inode and data block */
     new_node = find_free_inode();
     if(!new_node) {
@@ -311,6 +332,11 @@ int fs_mkdir(char *name) {
     return 0;
 }
 
+/* Remove a directory named "name." THIS IS DESTRUCTIVE AND WILL DESTROY
+ * ANYTHING UNDER THE DIRECTORY, INCLUDING OTHER DIRECTORIES! */
+int fs_rmdir(char *name) {
+}
+
 /* fs_ls: list all files in the current directory */
 int fs_ls() {
     int i;
@@ -355,6 +381,12 @@ int fs_ls() {
 }
 
 /* Change directories */
+/* The simple case for changing to root */
+void fs_cd_root() {
+    fs.cur_dir = (struct inode *)GET_ASSET_ADDR(0);
+    fs.cur_dir_name = "";
+}
+
 void fs_cd(char *name) {
     int i, j;
     int found = 0;
@@ -422,4 +454,176 @@ void fs_cd(char *name) {
 void fs_close() {
     close(fs.fd);
     fs.fd = -1;
+}
+
+/* File operation functions. Most of the functions that actually use these
+ * exist within file.c, but since there are file system operations I thought it
+ * would be prudent to put them here. */
+
+/* Create a file within the current directory */
+struct inode *create_file(char *name) {
+    int i;
+    struct inode *new_node = NULL;
+    struct data_block *new_blk = NULL;
+    struct dir_block *cur;
+    struct dir_entry *ent;
+
+    /* Make sure the filename isn't already in use */
+    if(find_file(name)) {
+        printf("fs error (create_file): file already exists.\n");
+        return NULL;
+    }
+
+    if(find_dir(name)) {
+        printf("fs error (create_file): name already in use by directory.\n");
+        return NULL;
+    }
+
+    /* Get an inode and data block for the new file */
+    new_node = find_free_inode();
+    if(!new_node) {
+        printf("fs error (create_file): could not find free inode\n");
+        return NULL;
+    }
+    
+    new_blk = find_free_block();
+    if(!new_blk) {
+        printf("fs error (create_file): could not find free data block\n");
+        return NULL;
+    }
+    
+    /* Get a free directory entry slot in the block */
+    cur = (struct dir_block *)GET_BLOCK_ADDR(fs.cur_dir->blocks[0]);
+    for(i = 0; i < DIR_BLOCK_ENTRIES; i++) {
+        ent = &cur->entries[i];
+        if(ent->entry_type == NODE_MODE_UNUSED) {
+            break;
+        }
+    }
+    
+    if(i == DIR_BLOCK_ENTRIES) {
+        printf("fs error (create_file): could not find free entry slot\n");
+        return NULL;
+    }
+
+    /* Configure the NEW data structures */
+    new_node->mode = NODE_MODE_FILE;
+    new_node->size = 0;
+    new_node->blocks[0] = GET_BLOCK_ABS_OFFSET(new_blk);
+    for(i = 0; i < sizeof(struct data_block) - sizeof(int); i++) {
+        new_blk->data[i] = '\0';
+    }
+    new_blk->flags = BLK_MODE_FILE;
+
+    /* Update the current directory to include the new file */
+    strcpy(ent->name, name);
+    ent->entry_type = NODE_MODE_FILE;
+    ent->entry_node = GET_INODE_OFFSET(new_node);
+    fs.cur_dir->size++;
+
+    return new_node;
+}
+
+/* Delete a file */
+int delete_file(char *name) {
+    int i;
+    int found = 0;
+    int found_dir = 0;
+    struct inode *file_node = NULL;
+    struct data_block *file_block;
+    struct dir_block *cur;
+    struct dir_entry *ent;
+
+    /* Make sure we're not trying to delete a directory */
+    if(find_dir(name)) {
+        return -1;
+    }
+
+    /* Get a pointer to the file */
+    file_node = find_file(name);
+    printf("file: 0x%x\n", file_node);
+    if(!file_node) {
+        return -2;
+    }
+    
+    /* Get a reference to the directory */
+    cur = (struct dir_block *)GET_ASSET_ADDR((fs.cur_dir->blocks[0]));
+    for(i = 0; i < DIR_BLOCK_ENTRIES; i++) {
+        ent = &cur->entries[i];
+        if(strcmp(ent->name, name) == 0) {
+            break;
+        }
+    }
+    /* Get pointers to the data block and inode */
+    file_node = (struct inode *)GET_ASSET_ADDR(ent->entry_node);
+    file_block = (struct data_block *)GET_ASSET_ADDR(file_node->blocks[0]);
+
+    /* Invalidate the entry, inode, and data block */
+    strcpy(ent->name, "");
+    ent->entry_type = NODE_MODE_UNUSED;
+    ent->entry_node = -1;
+
+    file_node->mode = NODE_MODE_UNUSED;
+    file_node->size = 0;
+    file_node->blocks[0] = -1;
+
+    file_block->flags = BLK_MODE_UNUSED;
+
+    fs.cur_dir->size--;
+
+    return 0;
+}
+
+/* Find a file in the current directory and return its inode */
+struct inode *find_file(char *name) {
+    int i;
+    int found = 0;
+    int found_dir = 0;
+
+    struct inode *file_node = NULL;
+    struct dir_block *cur;
+    struct dir_entry *ent;
+
+    cur = (struct dir_block *)GET_BLOCK_ADDR(fs.cur_dir->blocks[0]);
+    for(i = 0; i < DIR_BLOCK_ENTRIES; i++) {
+        ent = &cur->entries[i];
+        if(strcmp(ent->name, name) == 0 && ent->entry_type == NODE_MODE_FILE) {
+            found = 1;
+            file_node = (struct inode *)GET_ASSET_ADDR(ent->entry_node);
+            break;
+        }
+        else if(strcmp(ent->name, name) == 0) {
+            found_dir = 1;
+            break;
+        }
+    }
+   
+    return file_node;
+}
+
+/* Find a directory, too. This might be useful. */
+struct inode *find_dir(char *name) {
+    int i;
+    int found = 0;
+    int found_file = 0;
+
+    struct inode *dir_node = NULL;
+    struct dir_block *cur;
+    struct dir_entry *ent;
+
+    cur = (struct dir_block *)GET_BLOCK_ADDR(fs.cur_dir->blocks[0]);
+    for(i = 0; i < DIR_BLOCK_ENTRIES; i++) {
+        ent = &cur->entries[i];
+        if(strcmp(ent->name, name) == 0 && ent->entry_type == NODE_MODE_DIR) {
+            found = 1;
+            dir_node = (struct inode *)GET_ASSET_ADDR(ent->entry_node);
+            break;
+        }
+        else if(strcmp(ent->name, name) == 0) {
+            found_file = 1;
+            break;
+        }
+    }
+   
+    return dir_node;
 }

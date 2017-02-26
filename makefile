@@ -4,7 +4,7 @@ EXE=sh
 CONTAINER=fs_container
 
 all:
-	$(CC) -o $(EXE) $(SRC)
+	$(CC) -g -o $(EXE) $(SRC)
 
 clean:
 	rm -rf $(EXE) $(CONTAINER)

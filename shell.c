@@ -29,12 +29,60 @@ int shell_valid_string(char *str) {
     return 0;
 }
 
+/* This one is a little funky. We want to take a string for a path, break it 
+ * at the slashes by replacing them with '\0', then return the number of parts
+ * it was broken into. The receiving function can then use this number and
+ * strlen to iterate over the path components. */
+int process_path_string(char *path) {
+    int parts = 1;
+    int i, len;
+
+    len = strlen(path);
+    for(i = 0; i < len; i++) {
+        if(path[i] == '/' && i != len - 1) {
+            ++parts;
+            path[i] = '\0';
+        }
+        else if(path[i] == '/') {
+            path[i] = '\0';
+        }
+    }
+
+    return parts;
+}
+
+char *get_last_path_part(int count, char *path) {
+    int i;
+    char *rv = path;
+    
+    for(i = 0; i < count - 1; i++) {
+        rv += strlen(rv) + 1;
+    }
+
+    return rv;
+}
+
+
+void mass_change(int count, char *path) {
+    int i;
+    for(i = 0; i < count; i++) {
+        /* Don't make directories called "" */
+        if(strcmp("", path)) {
+            fs_cd(path);
+            path += strlen(path) + 1;
+        }
+    }
+}
+
 void listen() {
+    char *part;
     char *line = NULL;
     char cmd[CMD_LEN];
     size_t length;
-    int i, status, part_break;
+    int i, status, part_break, rv, count, modifier;
     int proceed = 1;
+    struct inode *tmp_node;
+    char *tmp_name;
 
     do {
         /* Reset the buffer for the first part of the command. */
@@ -43,6 +91,7 @@ void listen() {
         }
 
         /* Read a line from stdin and break on error or EOF */
+        printf("\njorance$ ");
         status = getline(&line, &length, stdin);
         if(status == -1) {
             break;
@@ -70,9 +119,23 @@ void listen() {
                 printf("fs error: invalid string to mkdir\n");
                 continue;
             }
-            
-            printf("fs: will make directory %s\n", &line[part_break]);
-            fs_mkdir(&line[part_break]);
+
+            tmp_node = fs.cur_dir;
+            tmp_name = fs.cur_dir_name;
+
+            if(line[part_break] == '/') {
+                modifier = 1;
+                fs_cd_root();
+            }
+            else {
+                modifier = 0;
+            }
+            count = process_path_string(&line[part_break + modifier]);
+            mass_change(count - 1, &line[part_break + modifier]);
+            fs_mkdir(get_last_path_part(count, &line[part_break + modifier]));
+
+            fs.cur_dir = tmp_node;
+            fs.cur_dir_name = tmp_name;
         }
         else if(strcmp(cmd, "ls") == 0) {
             fs_ls();
@@ -82,9 +145,60 @@ void listen() {
                 printf("fs error: invalid string to mkdir\n");
                 continue;
             }
+            if(line[part_break] == '/') {
+                modifier = 1;
+                fs_cd_root();
+            }
+            else {
+                modifier = 0;
+            }
+            count = process_path_string(&line[part_break + modifier]);
 
-            fs_cd(&line[part_break]);
+            mass_change(count, &line[part_break + modifier]);
         }
+        else if(strcmp(cmd, "touch") == 0) {
+            if(shell_valid_string(&line[part_break])) {
+                printf("fs error: invalid string to touch\n");
+                continue;
+            }
+
+            create_file(&line[part_break]);
+        }
+        else if(strcmp(cmd, "rm") == 0) {
+            if(shell_valid_string(&line[part_break])) {
+                printf("fs error: invalid string to rm\n");
+                continue;
+            }
+
+            rv = delete_file(&line[part_break]);
+            if(rv == -1) {
+                printf("fs error: %s is a directory\n", &line[part_break]);
+            }
+            else if(rv == -2) {
+                printf("fs error: %s does not exist.\n", &line[part_break]);
+            }
+        }
+        else if(strcmp(cmd, "parse") == 0) {
+            if(shell_valid_string(&line[part_break])) {
+                printf("fs error: invalid string\n");
+                continue;
+            }
+            
+            if(line[part_break] == '/') {
+                count = process_path_string(&line[part_break + 1]);
+                part = &line[part_break + 1];
+            }
+            else {
+                count = process_path_string(&line[part_break]);
+                part = &line[part_break];
+            }
+
+            for(i = 0; i < count; i++) {
+                printf("%3d: %s\n", i, part);
+                part = part + strlen(part) + 1;
+            }
+        }
+
         else if(strcmp(cmd, "exit") == 0) {
             printf("fs: goodbye\n");
             proceed = 0;
