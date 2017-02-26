@@ -65,10 +65,15 @@ char *get_last_path_part(int count, char *path) {
 
 void mass_change(int count, char *path) {
     int i;
+    int cdrv;
     for(i = 0; i < count; i++) {
         /* Don't make directories called "" */
         if(strcmp("", path)) {
-            fs_cd(path);
+            cdrv = fs_cd(path);
+            if(cdrv) {
+                printf("fs error: cd returned %d\n", cdrv);
+                break;
+            }
             path += strlen(path) + 1;
         }
     }
@@ -96,7 +101,7 @@ void listen() {
         if(status == -1) {
             break;
         }
-        line[strlen(line) - 1] = '\0';   /* "Strip" newline */
+       line[strlen(line) - 1] = '\0';   /* "Strip" newline */
 
         /* Isolate the first part of the command */
         i = 0;
@@ -161,22 +166,66 @@ void listen() {
                 printf("fs error: invalid string to touch\n");
                 continue;
             }
+            
+            tmp_node = fs.cur_dir;
+            tmp_name = fs.cur_dir_name;
 
-            create_file(&line[part_break]);
+            if(line[part_break] == '/') {
+                modifier = 1;
+                fs_cd_root();
+            }
+            else {
+                modifier = 0;
+            }
+            count = process_path_string(&line[part_break + modifier]);
+            mass_change(count - 1, &line[part_break + modifier]);
+            
+            rv = (long)create_file(get_last_path_part(count,
+                        &line[part_break + modifier]));
+
+            if(!rv) {
+                printf("fs error: create_file returned NULL!\n");
+            }
+
+            fs.cur_dir = tmp_node;
+            fs.cur_dir_name = tmp_name;
+
         }
         else if(strcmp(cmd, "rm") == 0) {
             if(shell_valid_string(&line[part_break])) {
                 printf("fs error: invalid string to rm\n");
                 continue;
             }
+            
+            tmp_node = fs.cur_dir;
+            tmp_name = fs.cur_dir_name;
 
-            rv = delete_file(&line[part_break]);
+            if(line[part_break] == '/') {
+                modifier = 1;
+                fs_cd_root();
+            }
+            else {
+                modifier = 0;
+            }
+            count = process_path_string(&line[part_break + modifier]);
+            mass_change(count - 1, &line[part_break + modifier]);
+            
+            rv = delete_file(get_last_path_part(count,
+                        &line[part_break + modifier]));
+
             if(rv == -1) {
                 printf("fs error: %s is a directory\n", &line[part_break]);
             }
             else if(rv == -2) {
                 printf("fs error: %s does not exist.\n", &line[part_break]);
             }
+
+            fs.cur_dir = tmp_node;
+            fs.cur_dir_name = tmp_name;
+
+        }
+        else if(strcmp(cmd, "tree") == 0) {
+            fs_tree(fs.cur_dir, 0);
         }
         else if(strcmp(cmd, "parse") == 0) {
             if(shell_valid_string(&line[part_break])) {

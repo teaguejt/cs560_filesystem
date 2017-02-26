@@ -380,6 +380,40 @@ int fs_ls() {
     return 0;
 }
 
+/* A function to recursively print a tree. May not be EXACTLY like Windows,
+ * but it's pretty close */
+/* To avoid recursion issues, we're not going to deal with . and .. here */
+void fs_tree(struct inode *dir, int indent) {
+    int i, j;
+    struct inode *next;
+    struct dir_block *blk;
+    struct dir_entry *ent;
+
+    /* Get the directory block of the current dir */
+    if(indent == 0) {
+        printf("\n.\n");
+    }
+    blk = (struct dir_block *)GET_ASSET_ADDR(dir->blocks[0]);
+    for(i = 0; i < DIR_BLOCK_ENTRIES; i++) {
+        ent = &blk->entries[i];
+        if(ent->entry_type == NODE_MODE_UNUSED) {
+            continue; 
+        }
+        if(strcmp(ent->name, ".") == 0 || strcmp(ent->name, "..") == 0) {
+            continue;
+        }
+
+        for(j = 0; j < indent; j++) {
+            printf("    ");
+        }
+        printf("|-- %s\n", ent->name);
+        if(ent->entry_type == NODE_MODE_DIR) {
+            next = (struct inode *)GET_ASSET_ADDR(ent->entry_node);
+            fs_tree(next, indent + 1);
+        }
+    }
+}
+
 /* Change directories */
 /* The simple case for changing to root */
 void fs_cd_root() {
@@ -387,7 +421,7 @@ void fs_cd_root() {
     fs.cur_dir_name = "";
 }
 
-void fs_cd(char *name) {
+int fs_cd(char *name) {
     int i, j;
     int found = 0;
     int found_file = 0;
@@ -397,8 +431,7 @@ void fs_cd(char *name) {
 
     /* Just in case there's no filesystem, bail out */
     if(fs.cur_dir == NULL) {
-        printf("fs error (fs_cd): no filesystem exists.\n");
-        return;
+        return -1;
     }
 
     /* Get the directory block of the current directory */
@@ -444,10 +477,10 @@ void fs_cd(char *name) {
     }
 
     if(found_file && !found) {
-        printf("fs error (fs_cd): cannot cd to %s: is a file\n", name);
+        return -2;
     }
     else if(!found_file && !found) {
-        printf("fs error (fs_cd): cannot cd to %s: not found\n", name);
+        return -3;
     }
 }
 

@@ -80,9 +80,10 @@ void fs_info();
 int fs_mkfs();
 int fs_mkdir(char *name);
 int fs_ls();
+void fs_tree(struct inode *dir, int indent);
 int fs_rmdir(char *name);
 void fs_close();
-void fs_cd(char *name);
+int fs_cd(char *name);
 void fs_cd_root();
 
 /* Some file operation functions */
