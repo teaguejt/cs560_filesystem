@@ -283,7 +283,9 @@ void listen() {
             printf("fs: opening files\n");
         }
 		else if(strcmp(cmd, "read") == 0) {
-		    file_read(0,11);
+		    char *x = file_read(0,30);
+			if(x)
+				printf("%s",x);
 		    file_seek(0,0);
         }
 		else if(strcmp(cmd, "write") == 0) {
@@ -292,7 +294,9 @@ void listen() {
         }
 		else if(strcmp(cmd, "seek") == 0) {
 		    file_seek(0,6);
-		    file_read(0,5);
+		    char *x = file_read(0,5);
+			if(x)
+				printf("%s",x);
 		    file_seek(0,0);
         }
 		else if(strcmp(cmd, "close") == 0) {
