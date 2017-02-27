@@ -280,28 +280,30 @@ void listen() {
 		else if(strcmp(cmd, "open") == 0) {
 		    file_open("filea",'r');
 		    file_open("filea",'w');
-            printf("fs: opening files\n");
         }
 		else if(strcmp(cmd, "read") == 0) {
-		    char *x = file_read(0,30);
+		    char *x = file_read(0,11);
 			if(x)
-				printf("%s",x);
+				printf("%s\n",x);
 		    file_seek(0,0);
         }
 		else if(strcmp(cmd, "write") == 0) {
-		    file_write(1,"Hello World");
+		    file_write(1,"Hello World\n This is the new me\n How are you?");
 		    file_seek(1,0);
         }
 		else if(strcmp(cmd, "seek") == 0) {
 		    file_seek(0,6);
 		    char *x = file_read(0,5);
 			if(x)
-				printf("%s",x);
+				printf("%s\n",x);
 		    file_seek(0,0);
         }
 		else if(strcmp(cmd, "close") == 0) {
 		    file_close(0);
 		    file_close(1);
+        }
+		else if(strcmp(cmd, "cat") == 0) {
+		    file_cat("filea");
         }
         /*end of file operation parsing*/
         else if(strcmp(cmd, "exit") == 0) {

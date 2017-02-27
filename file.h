@@ -28,3 +28,4 @@ char *file_read(int fd, int size);
 int file_write(int fd, char *string);
 struct descriptor *get_fd(int index);
 int file_open(char *name, char flag);
+void file_cat(char* name);
