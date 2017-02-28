@@ -12,6 +12,16 @@
 #include "file.h"
 #include "shell.h"
 
+int is_num(char *str){
+	int i;
+	for(i=0;i<strlen(str);i++){
+	  if(!isdigit(str[i])){
+		  return -1;
+	  }
+	}
+	return 0;
+}
+
 int shell_valid_string(char *str) {
     int i;
 
@@ -83,9 +93,10 @@ void mass_change(int count, char *path) {
 void listen() {
     char *part;
     char *line = NULL;
+	char *w;
     char cmd[CMD_LEN];
     size_t length;
-    int i, status, part_break, rv, count, modifier;
+    int i, status, part_break, rv, count, modifier, p, s, x, sz, fd;
     int proceed = 1;
     struct inode *tmp_node;
     char *tmp_name;
@@ -276,18 +287,20 @@ void listen() {
                 part = part + strlen(part) + 1;
             }
         }
-        /*finalize file operation parsing*/
 		else if(strcmp(cmd, "open") == 0) {
-			int p = 0;
-			int s = 0;
-			char* file = (char*) malloc(sizeof(char)*256);
+			p = 0;
+			s = 0;
+			char file[256];
+			memset(file, '\0', 256);		
 			char mode = '\0';
-			
+		
+			/*If no input after command*/
 			if(line[part_break] == '\0'){
 				printf("fs error: invalid input to open.\n");
 				continue;
 			}
 
+			/*Extract filename and flag*/
 			while(line[part_break + p] != '\0') {
 				if (line[part_break + p] == ' '){
 					++s;
@@ -305,39 +318,36 @@ void listen() {
 					break;
 				}
 			}
-			
-			if (p < 0){
+			if (p <= 0)
 				continue;
-			}
-		  	else{
-				file_open(file,mode);
-			}
+			file_open(file,mode);
         }
 		else if(strcmp(cmd, "read") == 0) {
-			int p = 0;
-			int x = 0;
-			int s = 0;
-			char* w;
+			p = 0;
+			x = 0;
+			s = 0;
+			sz = 0;
+			fd = 0;
 			char d[5];
 			char n[10];
-			int sz = 0;
-			int fd = 0;
-			
+			memset(d, '\0', 5);		
+			memset(n, '\0', 10);
+
+			/*If no input after command*/
 			if(line[part_break] == '\0'){
 				printf("fs error: invalid input to read.\n");
 				continue;
 			}
 
+			/*Extract size and fd*/
 			while(line[part_break + p] != '\0') {
 				if (line[part_break + p] == ' '){
 					++s;
 					++p;
 					continue;
 				}
-
 				if (s == 0)	
 					d[p] = line[part_break + p];
-  
 				if (s == 1){
 					n[x] = line[part_break + p];
 					++x;
@@ -349,49 +359,257 @@ void listen() {
 					break;
 				}
 			}
-			if (p <= 0){
+			if (p <= 0)
+				continue;
+			if(is_num(d) == -1 || is_num(n) == -1){	
+				printf("fs error: invalid input to read.\n");
 				continue;
 			}
-			else{
-				fd = strtol(d, (char **)NULL, 10);
-				sz = strtol(n, (char **)NULL, 10);
-				if(fd > 1024 || sz > 1000000){	
-					printf("fs error: invalid input to read.\n");
-					continue;
-				}
-				w = file_read(fd,sz);
-				if(w)
-					printf("%s\n",w);
+			fd = strtol(d, (char **)NULL, 10);
+			sz = strtol(n, (char **)NULL, 10);
+			if(fd > 1024 || sz > 1000000){	
+				printf("fs error: invalid input to read.\n");
+				continue;
 			}
+			w = file_read(fd,sz);
+			if(w)
+				printf("%s\n",w);
         }
 		else if(strcmp(cmd, "write") == 0) {
-		    file_write(1,"Hello World\n This is the new me\n How are you?");
-		    file_seek(1,0);
+			p = 0;
+			x = 0;
+			s = 0;
+			fd = 0;
+			char d[5];
+			char str[1000000];
+			memset(d, '\0', 5);		
+			memset(str, '\0', 1000000);
+
+			/*If no input after command*/
+			if(line[part_break] == '\0'){
+				printf("fs error: invalid input to write.\n");
+				continue;
+			}
+
+			/*Extract size and fd*/
+            while(line[part_break + p] != '\0') {
+                if (s == 0 && line[part_break + p] != ' ')
+                    d[p] = line[part_break + p];
+                if (s > 0){
+                    str[x] = line[part_break + p];
+                    ++x;
+                }
+                if (line[part_break + p] == ' ')
+					++s;
+                ++p;
+                if(x > 1000000 || (p > 4 && s == 0) || (line[part_break + p+1] == '\0' && s == 0)){
+                    printf("fs error: invalid input to write.\n");
+                    p = -1;
+                    break;
+                }
+            }
+            if (p <= 0)
+                continue;
+			if(is_num(d) == -1){	
+				printf("fs error: invalid input to write.\n");
+				continue;
+			}
+			fd = strtol(d, (char **)NULL, 10);
+			if(fd > 1024){	
+				printf("fs error: invalid input to write.\n");
+				continue;
+			}
+			file_write(fd,str);
         }
 		else if(strcmp(cmd, "seek") == 0) {
-		    file_seek(0,6);
-		    char *x = file_read(0,5);
-			if(x)
-				printf("%s\n",x);
-		    file_seek(1,11);
-			file_write(1,"\n This is the old me\n Who are you?");
-		    file_seek(0,0);
-		    file_seek(1,0);
+			p = 0;
+			x = 0;
+			s = 0;
+			sz = 0;
+			fd = 0;
+			char d[5];
+			char n[1000000];
+			memset(d, '\0', 5);		
+			memset(n, '\0', 1000000);
+
+			/*If no input after command*/
+			if(line[part_break] == '\0'){
+				printf("fs error: invalid input to seek.\n");
+				continue;
+			}
+
+			/*Extract index and fd*/
+			while(line[part_break + p] != '\0') {
+				if (line[part_break + p] == ' '){
+					++s;
+					++p;
+					continue;
+				}
+				if (s == 0)	
+					d[p] = line[part_break + p];
+				if (s == 1){
+					n[x] = line[part_break + p];
+					++x;
+				}
+				++p;
+				if(p > 12 || s > 1 || (p > 4 && s == 0) || (line[part_break + p+1] == '\0' && s == 0)){
+					printf("fs error: invalid input to seek.\n");
+					p = -1;
+					break;
+				}
+			}
+			if (p <= 0)
+				continue;
+			if(is_num(d) == -1 || is_num(n) == -1){	
+				printf("fs error: invalid input to seek.\n");
+				continue;
+			}
+			fd = strtol(d, (char **)NULL, 10);
+			sz = strtol(n, (char **)NULL, 10);
+			if(fd > 1024 || sz > 9999999){	
+				printf("fs error: invalid input to seek.\n");
+				continue;
+			}
+		    file_seek(fd,sz);
         }
 		else if(strcmp(cmd, "close") == 0) {
-		    file_close(0);
-		    file_close(1);
+			p = 0;
+			fd = 0;
+			char d[5];
+			memset(d, '\0', 5);		
+
+			/*If no input after command*/
+			if(line[part_break] == '\0'){
+				printf("fs error: invalid input to close.\n");
+				continue;
+			}
+
+			/*Extract fd*/
+			while(line[part_break + p] != '\0'){
+				d[p] = line[part_break + p];
+				++p;
+				if(p > 4 || line[part_break + p] == ' '){
+					printf("fs error: invalid input to close.\n");
+					p = -1;
+					break;
+				}
+			}
+			if (p <= 0)
+				continue;
+			if(is_num(d) == -1){	
+				printf("fs error: invalid input to close.\n");
+				continue;
+			}
+			fd = strtol(d, (char **)NULL, 10);
+			if(fd > 1024){	
+				printf("fs error: invalid input to close.\n");
+				continue;
+			}
+		    file_close(fd);
         }
 		else if(strcmp(cmd, "cat") == 0) {
-		    file_cat("filea");
+			p = 0;
+			char file[256];
+			memset(file, '\0', 256);		
+		
+			/*If no input after command*/
+			if(line[part_break] == '\0'){
+				printf("fs error: invalid input to cat.\n");
+				continue;
+			}
+
+			/*Extract filename*/
+			while(line[part_break + p] != '\0') {
+				file[p] = line[part_break + p];
+				++p;
+				if(p > 256 || (line[part_break + p] == ' ')){
+					printf("fs error: invalid input to cat.\n");
+					p = -1;
+					break;
+				}
+			}
+			if (p <= 0)
+				continue;
+			file_cat(file);
         }
 		else if(strcmp(cmd, "import") == 0) {
-		    file_import("test.txt","test.txt");
+			p = 0;
+			s = 0;
+			x = 0;
+			char file[256];
+			char file2[256];
+			memset(file, '\0', 256);		
+			memset(file2, '\0', 256);		
+		
+			/*If no input after command*/
+			if(line[part_break] == '\0'){
+				printf("fs error: invalid input to import.\n");
+				continue;
+			}
+
+			/*Extract filenames*/
+			while(line[part_break + p] != '\0') {
+				if (line[part_break + p] == ' '){
+					++s;
+					++p;
+					continue;
+				}
+				if (s == 0)	
+					file[p] = line[part_break + p];
+				if (s == 1){
+					file2[x] = line[part_break + p];
+					++x;
+				}
+				++p;
+				if(p > 512 || s > 1 || (line[part_break + p+1] == '\0' && s == 0)){
+					printf("fs error: invalid input to import.\n");
+					p = -1;
+					break;
+				}
+			}
+		  if (p <= 0)
+			  continue;
+		  file_import(file,file2);
         }
 		else if(strcmp(cmd, "export") == 0) {
-		    file_export("filea","filea.txt");
+			p = 0;
+			s = 0;
+			x = 0;
+			char file[256];
+			char file2[256];
+			memset(file, '\0', 256);		
+			memset(file2, '\0', 256);		
+		
+			/*If no input after command*/
+			if(line[part_break] == '\0'){
+				printf("fs error: invalid input to import.\n");
+				continue;
+			}
+
+			/*Extract filenames*/
+			while(line[part_break + p] != '\0') {
+				if (line[part_break + p] == ' '){
+					++s;
+					++p;
+					continue;
+				}
+				if (s == 0)	
+					file[p] = line[part_break + p];
+				if (s == 1){
+					file2[x] = line[part_break + p];
+					++x;
+				}
+				++p;
+				if(p > 512 || s > 1 || (line[part_break + p+1] == '\0' && s == 0)){
+					printf("fs error: invalid input to import.\n");
+					p = -1;
+					break;
+				}
+			}
+		  if (p <= 0)
+			  continue;
+		  file_export(file,file2);
         }
-        /*end of file operation parsing*/
         else if(strcmp(cmd, "exit") == 0) {
             printf("fs: goodbye\n");
             proceed = 0;

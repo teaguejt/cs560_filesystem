@@ -214,7 +214,7 @@ void file_cat(char *name){
 	/*Attemting to find the file, if it does not exist
 	 * return.*/
     if(!find_file(name)){
-		printf("No file named %s\n.",name);
+		printf("No file named %s.\n",name);
 		return;
     }
 
