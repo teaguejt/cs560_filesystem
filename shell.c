@@ -374,7 +374,7 @@ void listen() {
 			if(x)
 				printf("%s\n",x);
 		    file_seek(1,11);
-			file_write(1,"\n This is the old me\n who the foo?");
+			file_write(1,"\n This is the old me\n Who are you?");
 		    file_seek(0,0);
 		    file_seek(1,0);
         }

@@ -233,32 +233,54 @@ void file_cat(char *name){
 int file_import(char* src, char* dest){
 	char *file;
 	long size;
+	int f,e;
 	FILE *fd = fopen(src, "rb");
+	if(fd == NULL){
+			printf("Error opening source file.");
+			return -1;
+	}
+
+	/*Seek get size of source file*/
 	fseek(fd, 0, SEEK_END);
 	size = ftell(fd);
 	rewind(fd);
+	
+	/*Store source file's content*/
 	file = malloc(size * (sizeof(char)));
-	fread(file, sizeof(char), size, fd);
+	if(fread(file, sizeof(char), size, fd) != size){
+		printf("Error reading from source file");
+		return -1;
+	}
 	fclose(fd);
-	int f = file_open(dest,'w');
-	file_write(f,file);
+
+	/*Write file to fs*/
+	f = file_open(dest,'w');
+	if(f < 0)
+		return -1;
+	if(file_write(f,file) < 0)
+		return -1;
 	file_close(f);
 	return 0;
 }
 
 
 int file_export(char* src, char* dest){
-	FILE *fd = fopen(dest, "w");
 	struct inode *file;    
 	char *string;	 
+	FILE *fd = fopen(dest, "w");
+	if(fd == NULL){
+			printf("Error destination file.");
+			return -1;
+	}
 
+	/*Attempt to locate file in fs*/
 	if(!find_file(src)){
 		printf("No file named %s\n.",src);
-		return;
+		return -1;
     }
-
     file = find_file(src);
-	printf("filesize: %d\n",file->size);
+	
+	/*Store source file's content*/
 	string = (char*)malloc(sizeof(char)*file->size);
     lseek(fs.fd, file->blocks[0], SEEK_SET);
 	int x = read(fs.fd, string, file->size);
@@ -266,6 +288,8 @@ int file_export(char* src, char* dest){
 		printf("Read from fs failed.");
 		return -1;
 	}
+	
+	/*Write to host's file*/
 	fprintf(fd,"%s", string);
 	return 0;
 }
