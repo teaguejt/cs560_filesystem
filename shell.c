@@ -282,7 +282,7 @@ void listen() {
 		    file_open("filea",'w');
         }
 		else if(strcmp(cmd, "read") == 0) {
-		    char *x = file_read(0,11);
+		    char *x = file_read(0,46);
 			if(x)
 				printf("%s\n",x);
 		    file_seek(0,0);
@@ -296,7 +296,10 @@ void listen() {
 		    char *x = file_read(0,5);
 			if(x)
 				printf("%s\n",x);
+		    file_seek(1,11);
+			file_write(1,"\n This is the old me\n who the foo?");
 		    file_seek(0,0);
+		    file_seek(1,0);
         }
 		else if(strcmp(cmd, "close") == 0) {
 		    file_close(0);

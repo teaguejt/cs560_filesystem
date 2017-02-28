@@ -17,9 +17,11 @@ struct descriptor *get_fd(int index){
     return file;
 }
 
+
 /*Function for writing to files in the fs*/
 int file_write(int fd, char *string){
-    
+    int i = 0;
+
 	if(access(FSNAME, F_OK) == -1){
 		printf("Must create filesystem before operating on files.\n");
 		return -1;
@@ -43,16 +45,23 @@ int file_write(int fd, char *string){
 		printf("Write to fs failed.\n");
 		return -1;
 	}
-	write(fs.fd, '\0', 1);
-	file->node_ptr->size += x - (file->node_ptr->size - file->offset) + 1;
-	printf("Wrote %d bytes to file descriptor %d.\n",x+1,fd);
+	
+	if(file->node_ptr->size <= file->offset + x){
+		write(fs.fd, '\0', 1);
+		file->node_ptr->size += (file->offset + x + 1) - file->node_ptr->size;
+		i = 1;
+	}
+	printf("Wrote %d bytes to file descriptor %d.\n",x+i,fd);
+	printf("New filesize: %d.\n",file->node_ptr->size);
     file->offset += x;
     return x;
 }
 
+
 /*Function for reading from files in the fs*/
 char *file_read(int fd, int size){
-
+	char *string;
+    
     if(access(FSNAME, F_OK) == -1){
 		printf("Must create filesystem before operating on files.\n");
 		return NULL;
@@ -78,7 +87,7 @@ char *file_read(int fd, int size){
 	if(size > file->node_ptr->size - 1)
 		size = file->node_ptr->size -1;
     
-	char *string;
+	string = (char*)malloc(sizeof(char)*size);
     lseek(fs.fd, file->node_ptr->blocks[0] + file->offset, SEEK_SET);
     int x = read(fs.fd, string, size);
 	if(x == -1){
@@ -88,6 +97,7 @@ char *file_read(int fd, int size){
     file->offset += x;
     return string;
 }
+
 
 /*Function for chnging the offset of an open file in the fs*/
 int file_seek(int fd, int offset){
@@ -115,6 +125,7 @@ int file_seek(int fd, int offset){
     return file->offset;
 }
 
+
 /*Function for closing an open file in the fs*/
 int file_close(int fd){
     
@@ -137,6 +148,7 @@ int file_close(int fd){
     file->node_ptr = NULL;
     return 0;
 }
+
 
 /*Function for opening a file in the fs*/
 int file_open(char *name, char flag){
@@ -182,9 +194,11 @@ int file_open(char *name, char flag){
     return 0;
 }
 
+
 /*Function for displaying a files content*/
 void file_cat(char *name){
     struct inode *file;
+	char* string;
 
     if(access(FSNAME, F_OK) == -1){
 		printf("Must create filesystem before operating on files.\n");
@@ -205,8 +219,8 @@ void file_cat(char *name){
     }
 
     file = find_file(name);
-
-	char* string;
+	printf("filesize: %d\n",file->size);
+	string = (char*)malloc(sizeof(char)*file->size);
     lseek(fs.fd, file->blocks[0], SEEK_SET);
 	int x = read(fs.fd, string, file->size);
 	if(x == -1){
