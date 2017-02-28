@@ -60,6 +60,7 @@ struct inode {
 
 struct fs {
     int fd;
+	struct descriptor *files[1024];
     int data_start;
     struct inode *cur_dir;
     char *cur_dir_name;
@@ -91,3 +92,4 @@ struct inode *create_file(char *name);
 int delete_file(char *name);
 struct inode *find_file(char *name);
 struct inode *find_dir(char *name);
+
