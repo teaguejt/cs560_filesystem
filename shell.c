@@ -393,7 +393,17 @@ void listen() {
 
 			/*Extract size and fd*/
             while(line[part_break + p] != '\0') {
-                if (s == 0 && line[part_break + p] != ' ')
+                if (line[part_break + p] == '"'){
+				    ++p;
+					continue;
+				}
+                if (line[part_break + p] == '\\' && line[part_break +p+1] == 'n'){
+					str[x] = '\n';
+                    ++x;
+					p += 2;
+					continue;
+				}
+				if (s == 0 && line[part_break + p] != ' ')
                     d[p] = line[part_break + p];
                 if (s > 0){
                     str[x] = line[part_break + p];
