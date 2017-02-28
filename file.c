@@ -191,7 +191,7 @@ int file_open(char *name, char flag){
     fs.files[i]->flag = flag;
     fs.files[i]->offset = 0;
     fs.files[i]->node_ptr = file;
-    return 0;
+    return i;
 }
 
 
@@ -228,4 +228,44 @@ void file_cat(char *name){
 		return;
 	}
 	printf("%s\n",string);
+}
+
+int file_import(char* src, char* dest){
+	char *file;
+	long size;
+	FILE *fd = fopen(src, "rb");
+	fseek(fd, 0, SEEK_END);
+	size = ftell(fd);
+	rewind(fd);
+	file = malloc(size * (sizeof(char)));
+	fread(file, sizeof(char), size, fd);
+	fclose(fd);
+	int f = file_open(dest,'w');
+	file_write(f,file);
+	file_close(f);
+	return 0;
+}
+
+
+int file_export(char* src, char* dest){
+	FILE *fd = fopen(dest, "w");
+	struct inode *file;    
+	char *string;	 
+
+	if(!find_file(src)){
+		printf("No file named %s\n.",src);
+		return;
+    }
+
+    file = find_file(src);
+	printf("filesize: %d\n",file->size);
+	string = (char*)malloc(sizeof(char)*file->size);
+    lseek(fs.fd, file->blocks[0], SEEK_SET);
+	int x = read(fs.fd, string, file->size);
+	if(x == -1){
+		printf("Read from fs failed.");
+		return -1;
+	}
+	fprintf(fd,"%s", string);
+	return 0;
 }

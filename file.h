@@ -29,3 +29,5 @@ int file_write(int fd, char *string);
 struct descriptor *get_fd(int index);
 int file_open(char *name, char flag);
 void file_cat(char* name);
+int file_import(char* src, char* dest);
+int file_export(char* src, char* dest);

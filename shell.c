@@ -278,14 +278,91 @@ void listen() {
         }
         /*finalize file operation parsing*/
 		else if(strcmp(cmd, "open") == 0) {
-		    file_open("filea",'r');
-		    file_open("filea",'w');
+			int p = 0;
+			int s = 0;
+			char* file = (char*) malloc(sizeof(char)*256);
+			char mode = '\0';
+			
+			if(line[part_break] == '\0'){
+				printf("fs error: invalid input to open.\n");
+				continue;
+			}
+
+			while(line[part_break + p] != '\0') {
+				if (line[part_break + p] == ' '){
+					++s;
+					++p;
+					continue;
+				}
+				if (s == 0)	
+					file[p] = line[part_break + p];
+				if (s == 1)
+					mode = line[part_break + p];
+				++p;
+				if(p > 256 || s > 1 || (mode && (mode != 'r' && mode != 'w')) || (mode && line[part_break + p]) || (line[part_break + p+1] == '\0' && s == 0)){
+					printf("fs error: invalid input to open.\n");
+					p = -1;
+					break;
+				}
+			}
+			
+			if (p < 0){
+				continue;
+			}
+		  	else{
+				file_open(file,mode);
+			}
         }
 		else if(strcmp(cmd, "read") == 0) {
-		    char *x = file_read(0,46);
-			if(x)
-				printf("%s\n",x);
-		    file_seek(0,0);
+			int p = 0;
+			int x = 0;
+			int s = 0;
+			char* w;
+			char d[5];
+			char n[10];
+			int sz = 0;
+			int fd = 0;
+			
+			if(line[part_break] == '\0'){
+				printf("fs error: invalid input to read.\n");
+				continue;
+			}
+
+			while(line[part_break + p] != '\0') {
+				if (line[part_break + p] == ' '){
+					++s;
+					++p;
+					continue;
+				}
+
+				if (s == 0)	
+					d[p] = line[part_break + p];
+  
+				if (s == 1){
+					n[x] = line[part_break + p];
+					++x;
+				}
+				++p;
+				if(p > 12 || s > 1 || (p > 4 && s == 0) || (line[part_break + p+1] == '\0' && s == 0)){
+					printf("fs error: invalid input to read.\n");
+					p = -1;
+					break;
+				}
+			}
+			if (p <= 0){
+				continue;
+			}
+			else{
+				fd = strtol(d, (char **)NULL, 10);
+				sz = strtol(n, (char **)NULL, 10);
+				if(fd > 1024 || sz > 1000000){	
+					printf("fs error: invalid input to read.\n");
+					continue;
+				}
+				w = file_read(fd,sz);
+				if(w)
+					printf("%s\n",w);
+			}
         }
 		else if(strcmp(cmd, "write") == 0) {
 		    file_write(1,"Hello World\n This is the new me\n How are you?");
@@ -307,6 +384,12 @@ void listen() {
         }
 		else if(strcmp(cmd, "cat") == 0) {
 		    file_cat("filea");
+        }
+		else if(strcmp(cmd, "import") == 0) {
+		    file_import("test.txt","test.txt");
+        }
+		else if(strcmp(cmd, "export") == 0) {
+		    file_export("filea","filea.txt");
         }
         /*end of file operation parsing*/
         else if(strcmp(cmd, "exit") == 0) {
