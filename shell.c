@@ -74,7 +74,7 @@ char *get_last_path_part(int count, char *path) {
 }
 
 
-void mass_change(int count, char *path) {
+int mass_change(int count, char *path) {
     int i;
     int cdrv;
     for(i = 0; i < count; i++) {
@@ -83,7 +83,7 @@ void mass_change(int count, char *path) {
             cdrv = fs_cd(path);
             if(cdrv) {
                 printf("fs error: cd returned %d\n", cdrv);
-                break;
+                return -1;
             }
             path += strlen(path) + 1;
         }
@@ -294,10 +294,13 @@ void listen() {
         }
 		else if(strcmp(cmd, "open") == 0) {
 			p = 0;
+			x = 0;
 			s = 0;
 			char file[256];
 			memset(file, '\0', 256);		
 			char mode = '\0';
+            tmp_node = fs.cur_dir;
+            tmp_name = fs.cur_dir_name;
 		
 			/*If no input after command*/
 			if(line[part_break] == '\0'){
@@ -305,19 +308,35 @@ void listen() {
 				continue;
 			}
 
+            if(line[part_break] == '/') {
+                modifier = 1;
+                fs_cd_root();
+            }
+            else {
+                modifier = 0;
+            }
+            count = process_path_string(&line[part_break + modifier]);
+            if(mass_change(count - 1, &line[part_break + modifier]) < 1 && modifier){
+			  printf("Directory does not exist.");
+			  continue;
+			}
+            
+            strcpy(file,get_last_path_part(count,
+                        &line[part_break + modifier]));
+    	
 			/*Extract filename and flag*/
-			while(line[part_break + p] != '\0') {
-				if (line[part_break + p] == ' '){
+			while(file[p] != '\0') {
+				if (file[p] == ' '){
 					++s;
 					++p;
 					continue;
 				}
-				if (s == 0)	
-					file[p] = line[part_break + p];
-				if (s == 1)
-					mode = line[part_break + p];
+				if (s == 1){
+					mode = file[p];
+					file[p] = '\0';
+				}
 				++p;
-				if(p > 256 || s > 1 || (mode && (mode != 'r' && mode != 'w')) || (mode && line[part_break + p]) || (line[part_break + p+1] == '\0' && s == 0)){
+				if(p > 256 || s > 1 || (mode && file[p]) || (file[p+1] == '\0' && s == 0)){
 					printf("fs error: invalid input to open.\n");
 					p = -1;
 					break;
@@ -326,6 +345,8 @@ void listen() {
 			if (p <= 0)
 				continue;
 			file_open(file,mode);
+			fs.cur_dir = tmp_node;
+            fs.cur_dir_name = tmp_name;
         }
 		else if(strcmp(cmd, "read") == 0) {
 			p = 0;
@@ -526,6 +547,8 @@ void listen() {
 			p = 0;
 			char file[256];
 			memset(file, '\0', 256);		
+            tmp_node = fs.cur_dir;
+            tmp_name = fs.cur_dir_name;
 		
 			/*If no input after command*/
 			if(line[part_break] == '\0'){
@@ -545,7 +568,23 @@ void listen() {
 			}
 			if (p <= 0)
 				continue;
+            if(file[0] == '/') {
+                modifier = 1;
+                fs_cd_root();
+            }
+            else {
+                modifier = 0;
+            }
+            count = process_path_string(&file[1]);
+            if(mass_change(count - 1, &file[1]) < 1 && modifier){
+			  printf("Directory does not exist.");
+			  continue;
+			}
+            strcpy(file,get_last_path_part(count,
+                        file));
 			file_cat(file);
+			fs.cur_dir = tmp_node;
+            fs.cur_dir_name = tmp_name;
         }
 		else if(strcmp(cmd, "import") == 0) {
 			p = 0;
@@ -555,6 +594,8 @@ void listen() {
 			char file2[256];
 			memset(file, '\0', 256);		
 			memset(file2, '\0', 256);		
+            tmp_node = fs.cur_dir;
+            tmp_name = fs.cur_dir_name;
 		
 			/*If no input after command*/
 			if(line[part_break] == '\0'){
@@ -582,9 +623,27 @@ void listen() {
 					break;
 				}
 			}
-		  if (p <= 0)
+			if (p <= 0)
+			    continue;
+
+            if(file2[0] == '/') {
+                modifier = 1;
+                fs_cd_root();
+            }
+            else {
+                modifier = 0;
+            }
+            count = process_path_string(&file2[1]);
+            if(mass_change(count - 1, &file2[1]) < 1 && modifier){
+			  printf("Directory does not exist.");
 			  continue;
-		  file_import(file,file2);
+			}
+            
+            strcpy(file2,get_last_path_part(count,
+                        file2));
+			file_import(file,file2);
+			fs.cur_dir = tmp_node;
+            fs.cur_dir_name = tmp_name;
         }
 		else if(strcmp(cmd, "export") == 0) {
 			p = 0;
@@ -594,6 +653,8 @@ void listen() {
 			char file2[256];
 			memset(file, '\0', 256);		
 			memset(file2, '\0', 256);		
+            tmp_node = fs.cur_dir;
+            tmp_name = fs.cur_dir_name;
 		
 			/*If no input after command*/
 			if(line[part_break] == '\0'){
@@ -621,9 +682,26 @@ void listen() {
 					break;
 				}
 			}
-		  if (p <= 0)
+			if (p <= 0)
+			    continue;
+
+            if(file[0] == '/') {
+                modifier = 1;
+                fs_cd_root();
+            }
+            else {
+                modifier = 0;
+            }
+            count = process_path_string(&file[1]);
+            if(mass_change(count - 1, &file[1]) < 1 && modifier){
+			  printf("Directory does not exist.");
 			  continue;
-		  file_export(file,file2);
+			}
+            strcpy(file,get_last_path_part(count,
+                        file));
+			file_export(file,file2);
+			fs.cur_dir = tmp_node;
+            fs.cur_dir_name = tmp_name;
         }
         else if(strcmp(cmd, "exit") == 0) {
             printf("fs: goodbye\n");

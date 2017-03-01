@@ -275,7 +275,7 @@ int file_export(char* src, char* dest){
 
 	/*Attempt to locate file in fs*/
 	if(!find_file(src)){
-		printf("No file named %s\n.",src);
+		printf("No file named %s.\n",src);
 		return -1;
     }
     file = find_file(src);
