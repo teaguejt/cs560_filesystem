@@ -108,7 +108,12 @@ void listen() {
         }
 
         /* Read a line from stdin and break on error or EOF */
-        printf("\njorance$ ");
+        if(strcmp(fs.cur_dir_name, "") == 0) {
+            printf("\njorance (dir: <root>)-$ ");
+        }
+        else {
+            printf("\njorance (dir: %s)-$ ", fs.cur_dir_name);
+        }
         status = getline(&line, &length, stdin);
         if(status == -1) {
             break;

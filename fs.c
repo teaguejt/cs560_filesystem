@@ -101,11 +101,14 @@ int fs_init() {
         }
         read(fs.fd, (void *)fs.disk, DISK_SIZE);
         printf("fd %d\n", fs.fd);
+        fs.cur_dir = 0;
+        fs.cur_dir_name = "";
     }
     else {
         fs.fd = -1;
         fs.data_start = -1;
         fs.cur_dir = NULL;
+        fs.cur_dir_name = "";
         printf("fs: no fs. Run \"mkfs\" to create one\n");
     }
 
