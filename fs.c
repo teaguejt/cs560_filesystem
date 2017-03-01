@@ -50,7 +50,7 @@ struct inode *find_free_inode() {
     struct inode *node = NULL;
     struct inode *tmp;
    
-    printf("disk addr is 0x%x; node_start is 0x%x\n", fs.disk, NODES_START); 
+    /*printf("disk addr is 0x%x; node_start is 0x%x\n", fs.disk, NODES_START);*/
     for(tmp = NODES_START; tmp < NODES_END; tmp++) {
         if(tmp->mode == NODE_MODE_UNUSED) {
             node = tmp;
@@ -66,8 +66,8 @@ struct data_block *find_free_block() {
     struct data_block *blk = NULL;
     struct data_block *tmp;
 
-    printf("disk addr is 0x%x; block start is 0x%x ", fs.disk, BLOCKS_START);
-    printf("disk end is 0x%x\n", BLOCKS_END);
+    /*printf("disk addr is 0x%x; block start is 0x%x ", fs.disk, BLOCKS_START);*/
+    /*printf("disk end is 0x%x\n", BLOCKS_END);*/
 
     for(tmp = BLOCKS_START; tmp < BLOCKS_END; tmp++) {
         if(tmp->flags == BLK_MODE_UNUSED) {
@@ -190,7 +190,7 @@ int fs_mkfs() {
             return -1;
         }
     }
-    printf("fd is %d ", fs.fd);
+    /*printf("fd is %d ", fs.fd);*/
 
     /* Create the inodes */
     for(i = 0; i < TOTAL_INODE_SIZE; i += sizeof(struct inode)) {
@@ -242,36 +242,36 @@ int fs_mkdir(char *name) {
     /* make sure the file doesn't currently exist (as a file or directory) */
     /* But only if we actually have a current directory */
     if(fs.cur_dir) {
-        printf("checking files...\n");
+        /*printf("checking files...\n");*/
         if(find_file(name)) {
-            printf("fs error (fs_mkdir): name already in use for file.\n");
+            /*printf("fs error (fs_mkdir): name already in use for file.\n");*/
             return -6;
         }
 
-        printf("checking dirs...\n");
+        /*printf("checking dirs...\n");*/
         if(find_dir(name)) {
-            printf("fs error (fs_mkdir): directory already exists.\n");
+            /*printf("fs error (fs_mkdir): directory already exists.\n");*/
             return -7;
         }
     }
     /* locate and obtain pointers to a free inode and data block */
     new_node = find_free_inode();
     if(!new_node) {
-        printf("fs error (fs_mkdir): could not locate free inode\n");
+        /*printf("fs error (fs_mkdir): could not locate free inode\n");*/
         return -1;
     }
-    printf("fs: found free inode 0x%x (offset 0x%x) ", (void *)new_node, 
-            GET_INODE_OFFSET(new_node));
-    printf("corresponding to index %d\n", GET_INODE_INDEX(new_node));
+    /*printf("fs: found free inode 0x%x (offset 0x%x) ", (void *)new_node, 
+            GET_INODE_OFFSET(new_node));*/
+    /*printf("corresponding to index %d\n", GET_INODE_INDEX(new_node));*/
 
     new_block = (struct dir_block *)find_free_block();
     if(!new_block) {
         printf("fs error (fs_mkdir): could not locate free data block.\n");
         return -2;
     }
-    printf("fs: found free block 0x%x (offset 0x%x) ", (void *)new_block,
-            GET_BLOCK_ABS_OFFSET(new_block));
-    printf("corresponding to index %d\n", GET_BLOCK_INDEX(new_block));
+    /*printf("fs: found free block 0x%x (offset 0x%x) ", (void *)new_block,
+            GET_BLOCK_ABS_OFFSET(new_block));*/
+    /*printf("corresponding to index %d\n", GET_BLOCK_INDEX(new_block));*/
 
     /* Set up the dir, handling the special case where no current durectory
      * exists (ie, when a new fs is created) by setting the parent of the
@@ -298,13 +298,13 @@ int fs_mkdir(char *name) {
         fs.cur_dir_name = "";
     }
     else {
-        printf("fs: checking for free dir entry in block addr 0x%x\n",
-                GET_BLOCK_ADDR(fs.cur_dir->blocks[0]));
+        /*printf("fs: checking for free dir entry in block addr 0x%x\n",
+                GET_BLOCK_ADDR(fs.cur_dir->blocks[0]));*/
         pt_block = (struct dir_block *)GET_BLOCK_ADDR(fs.cur_dir->blocks[0]);
         fs.cur_dir->size++;
         free_entry = find_free_dir_entry(pt_block);
-        printf("fs: found free dir entry 0x%x in block index %d\n",
-                free_entry);
+        /*printf("fs: found free dir entry 0x%x in block index %d\n",
+                free_entry);*/
         strcpy(free_entry->name, name);
         free_entry->entry_type = NODE_MODE_DIR;
         free_entry->entry_node = GET_INODE_OFFSET(new_node);
@@ -548,6 +548,8 @@ int fs_cd(char *name) {
     else if(!found_file && !found) {
         return -3;
     }
+
+    return 0;
 }
 
 void fs_close() {
@@ -640,7 +642,7 @@ int delete_file(char *name) {
 
     /* Get a pointer to the file */
     file_node = find_file(name);
-    printf("file: 0x%x\n", file_node);
+    /*printf("file: 0x%x\n", file_node);*/
     if(!file_node) {
         return -2;
     }
